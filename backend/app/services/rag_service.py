@@ -2,7 +2,6 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 class RAGService:
@@ -10,7 +9,7 @@ class RAGService:
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-            
+            # Using the exact model name available from your API key list
             self.model = genai.GenerativeModel("models/gemini-3.5-flash")
         else:
             self.model = None
