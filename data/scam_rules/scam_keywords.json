@@ -1,0 +1,47 @@
+{
+    "categories": {
+        "authority_impersonation": {
+            "weight": 40,
+            "keywords": [
+                "cbi",
+                "supreme court",
+                "customs",
+                "police",
+                "cyber cell",
+                "rbi",
+                "ed"
+            ]
+        },
+        "threat_and_arrest": {
+            "weight": 45,
+            "keywords": [
+                "digital arrest",
+                "warrant",
+                "seize",
+                "fir",
+                "arrest",
+                "illegal items"
+            ]
+        },
+        "financial_demand": {
+            "weight": 35,
+            "keywords": [
+                "transfer",
+                "security deposit",
+                "penalty",
+                "bank account",
+                "otp"
+            ]
+        },
+        "urgency": {
+            "weight": 20,
+            "keywords": [
+                "immediately",
+                "urgent",
+                "within 2 hours",
+                "right now",
+                "asap"
+            ]
+        }
+    }
+}
