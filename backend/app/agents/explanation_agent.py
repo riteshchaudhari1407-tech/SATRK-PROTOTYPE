@@ -1,34 +1,45 @@
-from app.services.rag_service import RAGService
+import os
+from google import genai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class ExplanationAgent:
     def __init__(self):
-        self.rag_service = RAGService()
+        api_key = os.getenv("GEMINI_API_KEY")
+        self.client = genai.Client(api_key=api_key) if api_key else None
 
     def run(self, scam_text: str, signals: list, risk_level: str) -> dict:
-        """
-        Orchestrates the explanation generation using RAGService.
-        """
-        if risk_level == "LOW":
+        if not self.client:
             return {
-                "status": "Safe",
-                "explanation": "No significant threat signals detected."
+                "status": "Fallback",
+                "risk_level": risk_level,
+                "detailed_explanation": "Gemini API key not found. Please configure .env file."
             }
-        
-    
-        explanation = self.rag_service.generate_explanation(scam_text, signals)
-        
-        return {
-            "status": "Threat Explained",
-            "risk_level": risk_level,
-            "detailed_explanation": explanation
-        }
 
-if __name__ == "__main__":
-    print("Testing Explanation Agent...")
-    agent = ExplanationAgent()
-    
-    sample_text = "CBI alert! You are under digital arrest. Transfer the money immediately to avoid FIR."
-    sample_signals = ["authority_impersonation: 'cbi'", "threat_and_arrest: 'digital arrest'"]
-    
-    result = agent.run(sample_text, sample_signals, "HIGH")
-    print("\nAgent Result:\n", result)
+        prompt = f"""
+        Analyze this suspicious message:
+        "{scam_text}"
+
+        Detected Threat Signals: {signals}
+        Risk Level: {risk_level}
+
+        Provide a clear, strict cybersecurity explanation in simple English and give safety instructions (like calling 1930).
+        """
+
+        try:
+            response = self.client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
+            return {
+                "status": "Threat Explained",
+                "risk_level": risk_level,
+                "detailed_explanation": response.text.strip()
+            }
+        except Exception as e:
+            return {
+                "status": "Error",
+                "risk_level": risk_level,
+                "detailed_explanation": f"AI generation failed: {str(e)}"
+            }
