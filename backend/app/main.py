@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from backend.app.models.schemas import ScanInputModel, ScanResultModel
 from backend.app.agents.scam_detection_agent import ScamDetectionAgent
 
 app = FastAPI(
@@ -19,15 +19,12 @@ app.add_middleware(
 
 scam_agent = ScamDetectionAgent()
 
-class ScanRequest(BaseModel):
-    message: str
-
 @app.get("/")
 def read_root():
     return {"status": "Online", "message": "SIH Scam Detection Backend is running successfully!"}
 
-@app.post("/api/v1/scan")
-def scan_message(payload: ScanRequest):
+@app.post("/api/v1/scan", response_model=ScanResultModel)
+def scan_message(payload: ScanInputModel):
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty.")
     
@@ -36,3 +33,7 @@ def scan_message(payload: ScanRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000, reload=True)

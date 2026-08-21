@@ -38,11 +38,3 @@ class ScamDetectionAgent:
             "ml_details": ml_res,
             "ai_explanation": agent_res
         }
-
-if __name__ == "__main__":
-    agent = ScamDetectionAgent()
-    sample_text = "CBI alert! You are under digital arrest. Transfer the money immediately to avoid FIR."
-    print("Testing Scam Detection Agent Pipeline...")
-    import json
-    res = agent.run_pipeline(sample_text)
-    print(json.dumps(res, indent=4))
