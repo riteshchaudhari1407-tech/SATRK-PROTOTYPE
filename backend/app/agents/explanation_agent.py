@@ -1,45 +1,26 @@
-import os
-from google import genai
-from dotenv import load_dotenv
+"""
+Explanation Agent
+--------------------
+Takes a completed detection result and produces the final natural-
+language explanation shown to the user, via the LLM service (with
+its built-in offline fallback).
+"""
 
-load_dotenv()
+from app.agents.scam_detection_agent import DetectionResult
+from app.services.llm_service import AIExplanationResult, LLMService
+
 
 class ExplanationAgent:
     def __init__(self):
-        api_key = os.getenv("GEMINI_API_KEY")
-        self.client = genai.Client(api_key=api_key) if api_key else None
+        self.llm_service = LLMService()
 
-    def run(self, scam_text: str, signals: list, risk_level: str) -> dict:
-        if not self.client:
-            return {
-                "status": "Fallback",
-                "risk_level": risk_level,
-                "detailed_explanation": "Gemini API key not found. Please configure .env file."
-            }
-
-        prompt = f"""
-        Analyze this suspicious message:
-        "{scam_text}"
-
-        Detected Threat Signals: {signals}
-        Risk Level: {risk_level}
-
-        Provide a clear, strict cybersecurity explanation in simple English and give safety instructions (like calling 1930).
-        """
-
-        try:
-            response = self.client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=prompt
-            )
-            return {
-                "status": "Threat Explained",
-                "risk_level": risk_level,
-                "detailed_explanation": response.text.strip()
-            }
-        except Exception as e:
-            return {
-                "status": "Error",
-                "risk_level": risk_level,
-                "detailed_explanation": f"AI generation failed: {str(e)}"
-            }
+    def explain(self, detection: DetectionResult) -> AIExplanationResult:
+        return self.llm_service.generate_explanation(
+            text=detection.raw_text,
+            risk_level=detection.final_risk.risk_level.value,
+            final_score=detection.final_risk.score,
+            rule_score=detection.final_risk.rule_score,
+            ml_confidence=detection.final_risk.ml_confidence,
+            hits=detection.hits,
+            rag_context=detection.rag_context,
+        )

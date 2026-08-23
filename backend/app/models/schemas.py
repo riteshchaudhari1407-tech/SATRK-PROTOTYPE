@@ -1,16 +1,35 @@
-from pydantic import BaseModel, Field
-from typing import Dict, Any
+"""
+Shared enums and low-level schema types used across the app.
+"""
 
-# Input Schema
-class ScanInputModel(BaseModel):
-    message: str = Field(..., description="The suspicious message, text, or OCR extracted text to be scanned.")
+from enum import Enum
 
-# Result Schema
-class ScanResultModel(BaseModel):
-    success: bool
-    original_message: str
-    cleaned_message: str
-    risk_assessment: Dict[str, Any]
-    rule_details: Dict[str, Any]
-    ml_details: Dict[str, Any]
-    ai_explanation: Dict[str, Any]
+
+class RiskLevel(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+    @staticmethod
+    def from_score(score: float) -> "RiskLevel":
+        if score >= 80:
+            return RiskLevel.CRITICAL
+        if score >= 55:
+            return RiskLevel.HIGH
+        if score >= 30:
+            return RiskLevel.MEDIUM
+        return RiskLevel.LOW
+
+
+class ScanSource(str, Enum):
+    TEXT = "TEXT"
+    IMAGE = "IMAGE"
+
+
+class ThreatCategory(str, Enum):
+    AUTHORITY_IMPERSONATION = "Authority Impersonation"
+    DIGITAL_ARREST = "Digital Arrest / Isolation Tactics"
+    URGENCY_PRESSURE = "Urgency & Threat Pressure"
+    FINANCIAL_FRAUD = "Financial & Identity Fraud Bait"
+    PHISHING_REMOTE = "Phishing & Remote-Access Bait"

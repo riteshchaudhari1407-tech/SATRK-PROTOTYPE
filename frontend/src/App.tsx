@@ -2809,29 +2809,30 @@ export default function App() {
                                                                     (
                                                                         signal: any,
                                                                         index: number
-                                                                    ) => (
-                                                                        <div
-                                                                            key={
-                                                                                index
-                                                                            }
-                                                                            className={`rounded-xl border p-3 text-xs ${panelSoft}`}
-                                                                        >
-                                                                            <div className="flex gap-2">
+                                                                    ) => {
+                                                                        const sigText = typeof signal === 'string' ? signal : (signal.signal || signal.category || JSON.stringify(signal));
+                                                                        const sigEvidence = typeof signal === 'object' && (signal.evidence || signal.description) ? (signal.evidence || signal.description) : '';
 
-                                                                                <FiAlertTriangle className="mt-0.5 shrink-0 text-orange-400" />
+                                                                        return (
+                                                                            <div
+                                                                                key={
+                                                                                    index
+                                                                                }
+                                                                                className={`rounded-xl border p-3 text-xs ${panelSoft}`}
+                                                                            >
+                                                                                <div className="flex gap-2">
 
-                                                                                <span>
-                                                                                    {typeof signal ===
-                                                                                        'string'
-                                                                                        ? signal
-                                                                                        : JSON.stringify(
-                                                                                            signal
-                                                                                        )}
-                                                                                </span>
+                                                                                    <FiAlertTriangle className="mt-0.5 shrink-0 text-orange-400" />
 
+                                                                                    <div>
+                                                                                        <p className="font-bold">{sigText}</p>
+                                                                                        {sigEvidence && <p className="mt-1 text-[11px] opacity-80">{sigEvidence}</p>}
+                                                                                    </div>
+
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    )
+                                                                        );
+                                                                    }
                                                                 )
                                                         ) : (
                                                             <div className={`rounded-xl border p-3 text-xs ${panelSoft}`}>

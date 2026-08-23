@@ -1,27 +1,44 @@
+"""
+Text Processing Service
+------------------------
+Light preprocessing and feature extraction shared by the rule engine,
+ML model and RAG retriever. Kept dependency-free (no heavy NLP
+library) so the backend starts instantly with no model downloads.
+"""
+
 import re
+from dataclasses import dataclass
+
+
+@dataclass
+class TextFeatures:
+    length: int
+    word_count: int
+    exclamation_count: int
+    upper_word_count: int
+    digit_count: int
+    has_url: bool
+    has_currency_symbol: bool
+
 
 class TextProcessingService:
-    @staticmethod
-    def clean_and_normalize_text(text: str) -> str:
-        """
-        Cleans and normalizes the input text for scam detection.
-        - Removes extra whitespaces, newlines, and tabs
-        """
-        if not text or not isinstance(text, str):
-            return ""
-        
-        
-        cleaned_text = re.sub(r'\s+', ' ', text)
-        return cleaned_text.strip()
+    def clean(self, text: str) -> str:
+        """Lowercase + collapse whitespace for ML/RAG matching. Original
+        casing is preserved separately wherever excerpts are shown to
+        the user."""
+        text = text or ""
+        text = re.sub(r"\s+", " ", text).strip()
+        return text.lower()
 
-    @staticmethod
-    def extract_key_tokens(text: str) -> list:
-        """
-        Extracts words/tokens from the text for quick heuristic checks.
-        """
-        cleaned = TextProcessingService.clean_and_normalize_text(text).lower()
-        return re.findall(r'\b\w+\b', cleaned)
+    def extract_features(self, text: str) -> TextFeatures:
+        text = text or ""
 
-if __name__ == "__main__":
-    sample = "   Hello   World! This is an   urgent message.   "
-    print("Cleaned:", repr(TextProcessingService.clean_and_normalize_text(sample)))
+        return TextFeatures(
+            length=len(text),
+            word_count=len(text.split()),
+            exclamation_count=text.count("!"),
+            upper_word_count=len(re.findall(r"\b[A-Z]{4,}\b", text)),
+            digit_count=len(re.findall(r"\d", text)),
+            has_url=bool(re.search(r"https?://|bit\.ly/|tinyurl\.com/", text)),
+            has_currency_symbol=bool(re.search(r"[₹$]|\brs\.?\b", text, re.IGNORECASE)),
+        )

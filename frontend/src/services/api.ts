@@ -5,10 +5,10 @@ const API_BASE_URL = "http://127.0.0.1:8000";
 
 export const scanTextMessage = async (message: string) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/api/analyze`, { text: message });
+        const response = await axios.post(`${API_BASE_URL}/api/analyze`, { message, text: message });
         return response.data;
     } catch (error: any) {
-        return { success: false, error: error.message || "Failed to connect to backend" };
+        return { success: false, error: error.response?.data?.detail || error.message || "Failed to connect to backend" };
     }
 };
 
@@ -21,6 +21,6 @@ export const scanImageMessage = async (file: File) => {
         });
         return response.data;
     } catch (error: any) {
-        return { success: false, error: error.message || "Image upload failed" };
+        return { success: false, error: error.response?.data?.detail || error.message || "Image upload failed" };
     }
 };

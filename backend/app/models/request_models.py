@@ -1,7 +1,19 @@
+"""
+Pydantic request models for incoming API payloads.
+"""
+
 from pydantic import BaseModel, Field
 
-class MessageScanRequest(BaseModel):
-    message: str = Field(..., description="The suspicious text message or chat content to be analyzed.")
 
-class ImageScanRequest(BaseModel):
-    image_path: str = Field(..., description="Path or filename of the uploaded screenshot.")
+class TextScanRequest(BaseModel):
+    threat_text: str = Field(
+        ...,
+        min_length=1,
+        description="The suspicious message pasted by the user (SMS, WhatsApp, email, chat).",
+    )
+
+
+class I4CReportRequest(BaseModel):
+    threat_text: str = Field(default="Screenshot evidence analyzed")
+    risk_score: float = Field(default=0)
+    reported_by: str = Field(default="Analyst")

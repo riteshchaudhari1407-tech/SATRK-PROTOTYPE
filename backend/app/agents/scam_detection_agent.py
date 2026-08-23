@@ -1,40 +1,54 @@
-from backend.app.services.text_processing_service import TextProcessingService
-from backend.app.services.rule_engine_service import RuleEngine
-from backend.app.services.ml_detection_service import MLDetectionService
-from backend.app.services.risk_engine_service import RiskEngineService
-from backend.app.agents.explanation_agent import ExplanationAgent
+"""
+Scam Detection Agent
+-----------------------
+Orchestrates the detection pipeline: text preprocessing, rule-based
+pattern matching, ML classification, RAG retrieval of known patterns,
+and final risk scoring. Produces a single structured result that the
+explanation agent and API layer both consume.
+"""
+
+from dataclasses import dataclass
+from typing import List
+
+from app.services.ml_detection_service import MLDetectionService
+from app.services.rag_service import RAGService
+from app.services.risk_engine_service import FinalRisk, RiskEngineService
+from app.services.rule_engine_service import CategoryHit, RuleEngineService
+from app.services.text_processing_service import TextProcessingService
+
+
+@dataclass
+class DetectionResult:
+    raw_text: str
+    final_risk: FinalRisk
+    hits: List[CategoryHit]
+    rag_context: List[str]
+
 
 class ScamDetectionAgent:
     def __init__(self):
         self.text_processor = TextProcessingService()
-        self.rule_engine = RuleEngine()
-        self.ml_service = MLDetectionService()
+        self.rule_engine = RuleEngineService()
+        self.ml_detector = MLDetectionService()
+        self.rag = RAGService()
         self.risk_engine = RiskEngineService()
-        self.explanation_agent = ExplanationAgent()
 
-    def run_pipeline(self, raw_text: str) -> dict:
-        cleaned_text = self.text_processor.clean_and_normalize_text(raw_text)
-        if not cleaned_text:
-            return {"error": "Invalid or empty message provided."}
-        
-        rule_res = self.rule_engine.analyze_text(cleaned_text)
-        ml_res = self.ml_service.analyze_text(cleaned_text)
-        risk_res = self.risk_engine.evaluate(
-            rule_score=rule_res["rule_score"],
-            keyword_matches_count=len(rule_res["signals"])
+    def detect(self, raw_text: str) -> DetectionResult:
+        cleaned = self.text_processor.clean(raw_text)
+
+        # Rule engine works on the raw text so excerpts keep original
+        # casing/punctuation for a readable citation.
+        rule_result = self.rule_engine.analyze(raw_text)
+
+        ml_confidence = self.ml_detector.predict(cleaned)
+
+        rag_context = self.rag.retrieve(raw_text, top_k=2)
+
+        final_risk = self.risk_engine.combine(rule_result, ml_confidence)
+
+        return DetectionResult(
+            raw_text=raw_text,
+            final_risk=final_risk,
+            hits=rule_result.hits,
+            rag_context=rag_context,
         )
-        agent_res = self.explanation_agent.run(
-            scam_text=cleaned_text,
-            signals=rule_res["signals"],
-            risk_level=risk_res["risk_level"]
-        )
-        
-        return {
-            "success": True,
-            "original_message": raw_text,
-            "cleaned_message": cleaned_text,
-            "risk_assessment": risk_res,
-            "rule_details": rule_res,
-            "ml_details": ml_res,
-            "ai_explanation": agent_res
-        }

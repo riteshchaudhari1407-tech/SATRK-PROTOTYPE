@@ -1,50 +1,106 @@
-import cv2
-import numpy as np
-import pytesseract
-from PIL import Image
+"""
+OCR Service
+-------------
+Extracts text from an uploaded screenshot using Tesseract OCR via
+pytesseract. Requires the Tesseract binary on the host system (see
+backend/README.md). Fails loudly and clearly rather than returning a
+fake/empty result.
+"""
+
 import io
+import logging
+
+from PIL import Image, ImageOps
+
+logger = logging.getLogger("satrk.ocr")
 
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-def extract_text_from_image(image_bytes: bytes) -> str:
-    """
-    Given image bytes (from a FastAPI UploadFile), preprocess it 
-    and extract text using Tesseract OCR.
-    """
-    try:
-        
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            raise ValueError("Invalid image file or unable to decode.")
-
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        
-        _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        
-        extracted_text = pytesseract.image_to_string(thresh)
-        
-        
-        if not extracted_text.strip():
-            extracted_text = pytesseract.image_to_string(gray)
-
-        return extracted_text.strip()
-    
-    except Exception as e:
-        print(f"Error during OCR processing: {str(e)}")
-        return ""
+class OCRError(Exception):
+    """Raised when OCR extraction cannot be performed or yields nothing
+    meaningful."""
 
 
+class OCRService:
+    def __init__(self):
+        self.available = False
 
-if __name__ == "__main__":
-    print("OCR Service loaded successfully!")
-    try:
-        version = pytesseract.get_tesseract_version()
-        print(f"Tesseract OCR Engine Version: {version} (Installed & Working!)")
-    except Exception as e:
-        print(f"Tesseract engine error: {str(e)}")
+        try:
+            import pytesseract  # noqa: F401
+
+            self.available = True
+        except ImportError:
+            logger.warning(
+                "pytesseract is not installed — screenshot scanning is "
+                "disabled until it is installed."
+            )
+
+    def _preprocess(self, image: Image.Image) -> Image.Image:
+        image = image.convert("L")
+        image = ImageOps.autocontrast(image)
+
+        if image.width < 900:
+            scale = 900 / image.width
+            image = image.resize(
+                (int(image.width * scale), int(image.height * scale)),
+                Image.LANCZOS,
+            )
+
+        return image
+
+    def extract_text(self, image_bytes: bytes) -> str:
+        if not self.available:
+            raise OCRError(
+                "OCR is not available on this server. Install pytesseract "
+                "and the Tesseract binary, then restart the backend."
+            )
+
+        import pytesseract
+
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+        except Exception as exc:
+            raise OCRError(
+                f"Could not read the uploaded image: {exc}"
+            ) from exc
+
+        processed = self._preprocess(image)
+
+        try:
+            text = pytesseract.image_to_string(processed)
+        except pytesseract.TesseractNotFoundError as exc:
+            raise OCRError(
+                "Tesseract binary not found on this system. Install it "
+                "(`sudo apt install tesseract-ocr` on Linux, or the "
+                "UB-Mannheim build on Windows) and ensure it is on PATH."
+            ) from exc
+
+        cleaned = text.strip()
+
+        if not cleaned or len(cleaned) < 3:
+            raise OCRError(
+                "No meaningful text could be extracted from this "
+                "screenshot. Try a clearer or higher-resolution image."
+            )
+
+        return cleaned
+
+    def check_available(self) -> dict:
+        if not self.available:
+            return {
+                "connected": False,
+                "detail": "pytesseract package not installed.",
+            }
+
+        try:
+            import pytesseract
+
+            version = str(pytesseract.get_tesseract_version())
+            return {
+                "connected": True,
+                "detail": f"Tesseract {version} available.",
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "connected": False,
+                "detail": f"Tesseract binary not reachable: {exc}",
+            }
