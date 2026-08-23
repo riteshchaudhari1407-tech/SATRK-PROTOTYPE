@@ -853,7 +853,7 @@ export default function App() {
             try {
                 const response =
                     await fetch(
-                        'http://localhost:8000/api/v1/scans/recent'
+                        'http://127.0.0.1:8000/api/v1/scans/recent'
                     );
 
                 if (!response.ok) {
