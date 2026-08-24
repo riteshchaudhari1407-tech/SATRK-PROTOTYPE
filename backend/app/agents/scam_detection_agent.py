@@ -36,8 +36,7 @@ class ScamDetectionAgent:
     def detect(self, raw_text: str) -> DetectionResult:
         cleaned = self.text_processor.clean(raw_text)
 
-        # Rule engine works on the raw text so excerpts keep original
-        # casing/punctuation for a readable citation.
+       
         rule_result = self.rule_engine.analyze(raw_text)
 
         ml_confidence = self.ml_detector.predict(cleaned)

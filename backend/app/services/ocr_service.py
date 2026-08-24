@@ -1,106 +1,75 @@
 """
-OCR Service
--------------
-Extracts text from an uploaded screenshot using Tesseract OCR via
-pytesseract. Requires the Tesseract binary on the host system (see
-backend/README.md). Fails loudly and clearly rather than returning a
-fake/empty result.
+OCR Service using Groq Vision API
+--------------------------------
+Extracts text from an uploaded screenshot using Groq's multimodal vision model 
+(llama-3.2-11b-vision-preview). Requires zero local software installation!
 """
 
-import io
+import base64
 import logging
-
-from PIL import Image, ImageOps
+import os
 
 logger = logging.getLogger("satrk.ocr")
 
 
 class OCRError(Exception):
-    """Raised when OCR extraction cannot be performed or yields nothing
-    meaningful."""
+    """Raised when OCR extraction cannot be performed."""
 
 
 class OCRService:
-    def __init__(self):
-        self.available = False
-
-        try:
-            import pytesseract  # noqa: F401
-
-            self.available = True
-        except ImportError:
-            logger.warning(
-                "pytesseract is not installed — screenshot scanning is "
-                "disabled until it is installed."
-            )
-
-    def _preprocess(self, image: Image.Image) -> Image.Image:
-        image = image.convert("L")
-        image = ImageOps.autocontrast(image)
-
-        if image.width < 900:
-            scale = 900 / image.width
-            image = image.resize(
-                (int(image.width * scale), int(image.height * scale)),
-                Image.LANCZOS,
-            )
-
-        return image
+    def __init__(self, settings=None):
+        self.available = True
+        self.settings = settings
 
     def extract_text(self, image_bytes: bytes) -> str:
-        if not self.available:
-            raise OCRError(
-                "OCR is not available on this server. Install pytesseract "
-                "and the Tesseract binary, then restart the backend."
-            )
-
-        import pytesseract
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise OCRError("GROQ_API_KEY not found in environment variables.")
 
         try:
-            image = Image.open(io.BytesIO(image_bytes))
+            from groq import Groq
+            client = Groq(api_key=api_key)
+
+            # Convert image bytes to base64 data URL
+            base64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+            
+            # Call Groq Vision Model to extract text from screenshot
+            response = client.chat.completions.create(
+                model="qwen/qwen3.6-27b",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Extract all the text visible in this screenshot accurately and cleanly. Return ONLY the exact text found in the image, without any extra conversation."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+
+            extracted_text = response.choices[0].message.content.strip()
+
+            if not extracted_text or len(extracted_text) < 2:
+                raise OCRError("No meaningful text could be extracted from this screenshot.")
+
+            return extracted_text
+
         except Exception as exc:
-            raise OCRError(
-                f"Could not read the uploaded image: {exc}"
-            ) from exc
-
-        processed = self._preprocess(image)
-
-        try:
-            text = pytesseract.image_to_string(processed)
-        except pytesseract.TesseractNotFoundError as exc:
-            raise OCRError(
-                "Tesseract binary not found on this system. Install it "
-                "(`sudo apt install tesseract-ocr` on Linux, or the "
-                "UB-Mannheim build on Windows) and ensure it is on PATH."
-            ) from exc
-
-        cleaned = text.strip()
-
-        if not cleaned or len(cleaned) < 3:
-            raise OCRError(
-                "No meaningful text could be extracted from this "
-                "screenshot. Try a clearer or higher-resolution image."
-            )
-
-        return cleaned
+            logger.error("Groq Vision OCR failed: %s", exc)
+            raise OCRError(f"OCR failed via AI Vision: {exc}") from exc
 
     def check_available(self) -> dict:
-        if not self.available:
-            return {
-                "connected": False,
-                "detail": "pytesseract package not installed.",
-            }
-
-        try:
-            import pytesseract
-
-            version = str(pytesseract.get_tesseract_version())
-            return {
-                "connected": True,
-                "detail": f"Tesseract {version} available.",
-            }
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "connected": False,
-                "detail": f"Tesseract binary not reachable: {exc}",
-            }
+        return {
+            "connected": True,
+            "detail": "Groq Vision AI OCR active and ready.",
+        }

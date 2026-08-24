@@ -241,9 +241,9 @@ class RuleEngineService:
         if distinct_categories >= 4:
             combo_bonus = 30
         elif distinct_categories == 3:
-            combo_bonus = 26
+            combo_bonus = 30
         elif distinct_categories == 2:
-            combo_bonus = 20
+            combo_bonus = 22
         else:
             combo_bonus = 0
 

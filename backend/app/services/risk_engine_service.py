@@ -15,8 +15,8 @@ from app.models.schemas import RiskLevel
 from app.services.rule_engine_service import RuleEngineResult
 from app.utils.helpers import clamp
 
-RULE_WEIGHT = 0.68
-ML_WEIGHT = 0.32
+RULE_WEIGHT = 0.80
+ML_WEIGHT = 0.20
 
 
 @dataclass
